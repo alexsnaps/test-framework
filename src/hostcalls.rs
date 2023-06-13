@@ -309,7 +309,7 @@ fn get_hostfunc(store: &mut Store<()>, _abi_version: AbiVersion, import: &Import
 
         /* ---------------------------------- Continue/Close/Reply/Route ---------------------------------- */
         "proxy_continue_stream" => {
-            Some(Func::wrap(store, |_caller: Caller<'_, ()>| -> i32 {
+            Some(Func::wrap(store, |_caller: Caller<'_, ()>, _something: i32| -> i32 {
                 // Default Function:
                 // Expectation:
                 assert_eq!(
@@ -331,7 +331,7 @@ fn get_hostfunc(store: &mut Store<()>, _abi_version: AbiVersion, import: &Import
         }
 
         "proxy_close_stream" => {
-            Some(Func::wrap(store, |_caller: Caller<'_, ()>| -> i32 {
+            Some(Func::wrap(store, |_caller: Caller<'_, ()>, _something: i32| -> i32 {
                 // Default Function:
                 // Expectation:
                 assert_eq!(
