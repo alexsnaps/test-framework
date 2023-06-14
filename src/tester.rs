@@ -267,6 +267,18 @@ impl Tester {
     ) -> ExpectHttpCall {
         ExpectHttpCall::expecting(self, upstream, headers, body, trailers, timeout)
     }
+    
+    pub fn expect_grpc_call(
+        &mut self,
+        service: Option<&'static str>,
+        service_name: Option<&'static str>,
+        method_name: Option<&'static str>,
+        initial_metadata: Option<&'static str>,
+        request: Option<&'static str>,
+        timeout: Option<u64>,
+    ) -> ExpectGrpcCall {
+        ExpectGrpcCall::expecting(self, service, service_name, method_name, initial_metadata, request, timeout)
+    }
 
     /* ------------------------------------- High-level Expectation Setting ------------------------------------- */
 
@@ -323,7 +335,10 @@ impl Tester {
     }
 
     fn assert_expect_stage(&mut self) {
-        self.expect.lock().unwrap().assert_stage();
+        let err = self.expect.lock().unwrap().assert_stage();
+        if let Some(msg) = err {
+            panic!("{}", msg)
+        }
     }
 
     pub fn get_settings_handle(&self) -> MutexGuard<HostHandle> {

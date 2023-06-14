@@ -43,6 +43,8 @@ pub fn get_abi_version(module: &Module) -> AbiVersion {
         AbiVersion::ProxyAbiVersion0_1_0
     } else if module.get_export("proxy_abi_version_0_2_0").is_some() {
         AbiVersion::ProxyAbiVersion0_2_0
+    } else if module.get_export("proxy_abi_version_0_2_1").is_some() {
+        AbiVersion::ProxyAbiVersion0_2_0
     } else {
         panic!("Error: test-framework does not support proxy-wasm modules of this abi version");
     }
@@ -1337,20 +1339,64 @@ fn get_hostfunc(store: &mut Store<()>, _abi_version: AbiVersion, import: &Import
         "proxy_grpc_call" => {
             Some(Func::wrap(
                 store,
-                |_caller: Caller<'_, ()>,
-                 _service_ptr: i32,
-                 _service_size: i32,
-                 _service_name_ptr: i32,
-                 _service_name_size: i32,
-                 _method_name_ptr: i32,
-                 _method_name_size: i32,
-                 _initial_metadata_ptr: i32,
-                 _initial_metadata_size: i32,
-                 _request_ptr: i32,
-                 _request_size: i32,
-                 _timeout_milliseconds: i32,
-                 _token_ptr: i32|
+                |mut caller: Caller<'_, ()>,
+                 service_ptr: i32,
+                 service_size: i32,
+                 service_name_ptr: i32,
+                 service_name_size: i32,
+                 method_name_ptr: i32,
+                 method_name_size: i32,
+                 initial_metadata_ptr: i32,
+                 initial_metadata_size: i32,
+                 request_ptr: i32,
+                 request_size: i32,
+                 timeout_milliseconds: i32,
+                 token_ptr: i32|
                  -> i32 {
+                    print!("[vm->host] proxy_grpc_call({initial_metadata_ptr}, {initial_metadata_size})");
+
+                    // Default Function: receives and displays http call from proxy-wasm module
+                    // Expectation: asserts equal the receieved http call with the expected one
+                    let mem = match caller.get_export("memory") {
+                        Some(Extern::Memory(mem)) => mem,
+                        _ => {
+                            println!("Error: proxy_http_call cannot get export \"memory\"");
+                            println!(
+                                "[vm<-host] proxy_http_call(...) -> (return_token) return: {:?}",
+                                Status::InternalFailure
+                            );
+                            return Status::InternalFailure as i32;
+                        }
+                    };
+
+                    let service = read_string(&caller, mem, service_ptr, service_size);
+                    let service_name = read_string(&caller, mem, service_name_ptr, service_name_size);
+                    let method_name = read_string(&caller, mem, method_name_ptr, method_name_size);
+                    let initial_metadata = read_bytes(&caller, mem, initial_metadata_ptr, initial_metadata_size);
+                    let request = read_bytes(&caller, mem, request_ptr, request_size);
+
+                    println!(
+                        "[vm->host] proxy_grpc_call(service={service}, service_name={service_name}, method_name={method_name}, initial_metadata={initial_metadata:?}, request={request:?}, timeout={timeout_milliseconds}");
+
+                    let token_id = match EXPECT.lock().unwrap().staged.get_expect_grpc_call(
+                        service,
+                        service_name,
+                        initial_metadata,
+                        request,
+                        timeout_milliseconds,
+                    ) {
+                        Some(expect_token) => expect_token,
+                        None => 0,
+                    };
+
+                    unsafe {
+                        let return_token_add = mem.data_mut(&mut caller).get_unchecked_mut(
+                            token_ptr as u32 as usize..token_ptr as u32 as usize + 4,
+                        );
+                        return_token_add.copy_from_slice(&token_id.to_le_bytes());
+                    }
+
+
                     // Default Function:
                     // Expectation:
                     println!(
@@ -1359,9 +1405,9 @@ fn get_hostfunc(store: &mut Store<()>, _abi_version: AbiVersion, import: &Import
                     );
                     println!(
                         "[vm<-host] proxy_grpc_call() -> (..) return: {:?}",
-                        Status::InternalFailure
+                        Status::Ok
                     );
-                    return Status::InternalFailure as i32;
+                    return Status::Ok as i32;
                 },
             ))
         }
@@ -1586,6 +1632,19 @@ fn get_hostfunc(store: &mut Store<()>, _abi_version: AbiVersion, import: &Import
 
         _ => None,
     }
+}
+
+fn read_string(caller: &Caller<()>, mem: Memory, ptr: i32, size: i32) -> String {
+    read_bytes(caller, mem, ptr, size)
+        .map(String::from_utf8_lossy)
+        .unwrap()
+        .to_string()
+}
+
+fn read_bytes<'a>(caller: &'a Caller<()>, mem: Memory, ptr: i32, size: i32) -> Option<&'a [u8]> {
+    mem
+        .data(caller)
+        .get(ptr as usize..ptr as usize + size as usize)
 }
 
 pub mod serial_utils {
