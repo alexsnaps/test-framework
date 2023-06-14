@@ -87,11 +87,7 @@ pub struct Expect {
         Option<Duration>,
         Option<u32>,
     )>,
-    grpc_call: Vec<(
-        Option<String>,
-        Option<Duration>,
-        Option<u32>,
-    )>,
+    grpc_call: Vec<(Option<String>, Option<Duration>, Option<u32>)>,
 }
 
 impl Expect {
@@ -200,10 +196,8 @@ impl Expect {
         buffer_data: Option<&[u8]>,
     ) {
         self.expect_count += 1;
-        self.get_buffer_bytes.push((
-            buffer_type,
-            buffer_data.map(|data| data.to_vec()),
-        ));
+        self.get_buffer_bytes
+            .push((buffer_type, buffer_data.map(|data| data.to_vec())));
     }
 
     pub fn get_expect_get_buffer_bytes(&mut self, buffer_type: i32) -> Option<Bytes> {
@@ -591,10 +585,10 @@ impl Expect {
     ) {
         self.expect_count += 1;
         self.grpc_call.push((
-                service.map(ToString::to_string),
-                timeout.map(Duration::from_millis),
-                token_id,
-            ));
+            service.map(ToString::to_string),
+            timeout.map(Duration::from_millis),
+            token_id,
+        ));
     }
 
     pub fn get_expect_grpc_call(
