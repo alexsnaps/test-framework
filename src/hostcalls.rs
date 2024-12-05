@@ -1404,7 +1404,7 @@ fn get_hostfunc(
                  timeout_milliseconds: i32,
                  token_ptr: i32|
                  -> i32 {
-                    print!("[vm->host] proxy_grpc_call({initial_metadata_ptr}, {initial_metadata_size})");
+                    println!("[vm->host] proxy_grpc_call({initial_metadata_ptr}, {initial_metadata_size})");
 
                     // Default Function: receives and displays http call from proxy-wasm module
                     // Expectation: asserts equal the receieved http call with the expected one
